@@ -17,6 +17,9 @@ REPO=${REPO:-"$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"}
 RB=${RB:-$REPO/bin/rsf_solve}
 BP5=${BP5:-$REPO/bp5}
 MPIRUN=${MPIRUN:-$PETSC_DIR/$PETSC_ARCH/bin/mpirun}
+# NUMA-aware rank binding, on by default as standard HPC hygiene. Measured ~neutral
+# on theo3 (0-12% at np=48, within noise) — not a speedup. Harmless at np=1.
+BIND=${BIND:--bind-to core -map-by numa}
 
 # Anchor resolution. 2km/1000 cells: fast (~seconds), and still reproduces the
 # real physics — first spontaneous recurrence at 236.81 yr (matches HBI + the
@@ -43,7 +46,7 @@ run_anchor() {
   local geom=$BP5/geom_bp5_${RES}.in rsf=$BP5/rsf_bp5_${RES}.dat
   local ic=$BP5/ic_bp5_${RES}.in dc=$BP5/dc_bp5_${RES}.in
   rm -rf "$out"; mkdir -p "$out"
-  ( cd "$out" && $MPIRUN -np "$np" "$RB" \
+  ( cd "$out" && $MPIRUN $BIND -np "$np" "$RB" \
       -geom_file "$geom" -rsf_file "$rsf" -rsf_ic_file "$ic" -rsf_dc_file "$dc" \
       $(anchor_flags_for "$be") \
       -shear_modulus 3.204e10 -s_wave_speed 3464 \

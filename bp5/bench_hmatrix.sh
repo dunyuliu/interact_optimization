@@ -25,7 +25,11 @@ ZTOL=${ZTOL:-1e-4}                         # HACApK -hacapk_ztol
 HEPS=${HEPS:-1e-4}                         # HTOOL  -mat_htool_epsilon
 MPIRUN=${MPIRUN:-$PETSC_DIR/build/bin/mpirun}                   # set to "mpirun --oversubscribe" to test
                                            #   more ranks than physical cores
-EXTRA_MPI=${EXTRA_MPI:-}                   # e.g. "--bind-to core --map-by core"
+# NUMA-aware rank binding, on by default as standard HPC hygiene (and to avoid
+# contention pathologies on shared nodes). Measured effect on theo3 is ~neutral
+# (0-12% at np=48, within noise) -- it is NOT a speedup. MPICH/Hydra syntax below;
+# for OpenMPI use "--bind-to core --map-by numa". Set EXTRA_MPI= to disable.
+EXTRA_MPI=${EXTRA_MPI:--bind-to core -map-by numa}
 # If PETSc shared libs aren't on the loader path, set them here:
 # export LD_LIBRARY_PATH=$PETSC_DIR/$PETSC_ARCH/lib:$LD_LIBRARY_PATH
 export OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1

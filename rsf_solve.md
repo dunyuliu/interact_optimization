@@ -278,6 +278,20 @@ counts where it flattened are exactly where threads-per-rank may help.
 
 ---
 
+### Update (2026-06, theo3 — a different machine flips the ranking)
+
+Re-running this matrix on **theo3** (dual-socket AMD EPYC 7F72, 2×24 cores, no HT;
+PETSc 3.22.5 with `sympartialACA`) with NUMA rank binding gives the *opposite* backend
+ranking: **HTOOL is fastest at every size and rank count** (0.5 km: 7.1 s @ np=24 vs HACApK
+9.2 s, dense 63 s), and HTOOL assembly is **cheap** here — 18.7 s single-core at 0.5 km, not
+the ~38 min seen on walter (the `sympartialACA`/build difference removes the SVD-assembly
+trap). Clean re-measurement: HTOOL keeps improving to np=48 (6.5 s @ 0.5 km); HACApK
+regresses mildly there. MPI rank binding is kept on as hygiene but is **~neutral** on theo3
+(0–12% at np=48, within noise) — an earlier "8–14× collapse fix" claim here was a
+contended-machine artifact, since corrected. Full tables + raw CSVs: `scaling_tests/theo3_scaling_matrix.md`
+and `scaling_tests/theo3_numa_binding.md`. The lesson stands: **benchmark on your target
+hardware/build** — the "HACApK default" verdict is walter-specific.
+
 ## Quick reference — running the benchmark
 
 ```bash
