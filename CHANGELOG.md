@@ -35,3 +35,11 @@ contended node and has been **corrected** — see below.)
   `-ts_rk_type 3bs -ts_adapt_type dsp`. Patch: `runs/campaign/M-integrator-rsf_solve.patch`.
 - **Mixed/single precision:** infeasible without a single-precision PETSc build or a
   multi-day HACApK port (`scaling_tests/precision_feasibility.md`).
+- **BLAS dgemv kernel rewrite:** the HACApK leaf-block matvec is hand-rolled scalar loops
+  (= dgemv). Rewriting them with BLAS preserved accuracy (~1e-13 parity, identical recurrence)
+  but gave **0% speedup** — verified by clean A/B (best-of-3, both kernels rebuilt): 1 km
+  2.31→2.31 ms, 2 km 0.153→0.153 ms. The matvec is **memory-bandwidth-bound**, so vectorizing
+  the arithmetic moves the same bytes and buys nothing; small leaf blocks also negate dgemv's
+  SIMD edge. Not landed (no benefit, and not bit-identical). This is the third independently
+  **disproven** speedup (cf. the binding artifact), confirming bandwidth — not compute or code
+  style — is the bottleneck.
