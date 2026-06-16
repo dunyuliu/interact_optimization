@@ -25,3 +25,6 @@
 # --- stray run outputs if ever produced at the repo root ---
 /rsf_monitor.dat
 /*.log
+
+# --- harness scratch (scheduler lock, etc.) ---
+/.claude/
