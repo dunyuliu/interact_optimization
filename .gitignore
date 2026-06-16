@@ -1,0 +1,27 @@
+# =============================================================================
+# interact_optimization — keep dev/build/run artifacts out of the tree so
+# `git status` shows only intentional source changes. (theo3 dev)
+# =============================================================================
+
+# --- top-level build outputs ---
+/bin/
+/objects/
+
+# --- eispack build outputs (its ODIR = eispack/) ---
+/eispack/*.o
+/eispack/libmyeis*.a
+/eispack/test_dbl
+/eispack/test_sgl
+
+# --- HACApK C-interface build outputs ---
+/HACApK/v.1.0.0/C_interface/objects/
+/HACApK/v.1.0.0/C_interface/*.mod
+/HACApK/v.1.0.0/C_interface/libhacapk.a
+/HACApK/v.1.0.0/C_interface/test_hacpak_c
+
+# --- isolated run / scratch workspace (all benchmark runs live here) ---
+/runs/
+
+# --- stray run outputs if ever produced at the repo root ---
+/rsf_monitor.dat
+/*.log
