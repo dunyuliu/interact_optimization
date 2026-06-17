@@ -119,6 +119,53 @@ IN PARTICULAR, THE INPUT FORMATS ETC. ARE DESCRIBED WHEN TYPING
 interact -h
 ```
 
+## How it works (workflow)
+
+interact is a **boundary-element method (BEM)** code. A fault is discretized into
+rectangular/triangular **patches**, and the elastic interaction between patches is given by
+**Okada / triangular-dislocation Green's functions** in an elastic half-space: slip on patch
+*j* produces a known stress on patch *i*. Collecting these gives the dense **interaction
+matrix** that is the heart of every calculation.
+
+Two main programs use it:
+
+- **`interact`** — static / quasi-static. Read fault geometry + boundary conditions (stress
+  and/or slip on patches) → build the interaction matrix → solve the system (optionally with
+  friction and non-negativity constraints) → output stress and slip. Can also run simple
+  loading experiments with static/kinetic friction.
+
+- **`rsf_solve`** — rate-and-state-friction **quasi-dynamic earthquake-cycle** simulation:
+  1. **Input** — patch geometry, rate-state parameters (`a`, `b`, `D_c`), initial conditions
+     (shear stress τ, slip velocity V), and material properties (shear modulus, shear-wave
+     speed, normal stress).
+  2. **Assemble** the elastic stress-interaction operator **once** — exactly (dense) or
+     compressed via an H-matrix backend (HTOOL / HACApK / h2opus); see `-use_hmatrix` below.
+  3. **Integrate the ODE in time** (adaptive Runge–Kutta). The state is slip velocity `V` and a
+     state variable `ψ` per patch. Each right-hand-side evaluation forms
+     **stress_rate = interaction_matrix · V** (the *matvec*) plus backslip tectonic loading,
+     then the rate-state friction law + radiation damping give `dV/dt`, `dψ/dt`. The adaptive
+     stepper automatically resolves slow interseismic loading and fast coseismic rupture.
+  4. **Output** — time series of max slip rate, slip, and stress, with event detection
+     (earthquake recurrence times).
+
+  The dominant cost is the **matvec** in step 3 (`src/rsf_solve.c`, `MatMult(medium->Is, …)`),
+  applied ~6×Nsteps (~10⁴–10⁵ times per run) — which is what the H-matrix backends and the
+  performance notes below target.
+
+### "dense" vs "BP5" — two different things
+These are orthogonal and easy to conflate:
+- **dense** is a **backend / solver choice** (`-use_hmatrix 0`): apply the matvec as the exact,
+  full O(N²) matrix product, versus HTOOL / HACApK / h2opus which *compress* the far field.
+  It answers *how* the operator is applied.
+- **BP5** is a **benchmark problem** (SCEC SEAS BP5-QD, in `bp5/`): a specific scenario — a
+  vertical strike-slip fault (100 × 40 km) with fixed rate-state parameters and initial
+  conditions and a known answer (first spontaneous recurrence ≈ 236.81 yr). It answers *what*
+  is simulated.
+
+So you run "**BP5** with the **dense** backend" (the exact reference) or "BP5 with HACApK/HTOOL"
+(compressed, reproducing the same BP5 answer to tolerance). The dense-on-BP5 result is the
+bit-identical reference the test anchor (`tests/`) checks the other backends against.
+
 ## Performance and scaling (`rsf_solve` H-matrix backends)
 
 `rsf_solve`'s cost is dominated by the dense elastic-interaction **matvec**, applied
