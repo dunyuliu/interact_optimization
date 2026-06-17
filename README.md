@@ -119,6 +119,68 @@ IN PARTICULAR, THE INPUT FORMATS ETC. ARE DESCRIBED WHEN TYPING
 interact -h
 ```
 
+## Performance and scaling (`rsf_solve` H-matrix backends)
+
+`rsf_solve`'s cost is dominated by the dense elastic-interaction **matvec**, applied
+~6×Nsteps (~10⁴–10⁵) per cycle. It can apply that operator through several backends, chosen
+with `-use_hmatrix`: `0` dense (exact, O(N²) memory & matvec), `1` HTOOL (PETSc `MATHTOOL`),
+`2` h2opus (GPU-capable), `3` HACApK. The H-matrix backends compress the far field to
+~O(N log N). All reproduce the BP5-QD benchmark to the same accuracy (see `tests/`).
+
+### Memory / compression — the robust, deterministic win
+The clearest benefit is **memory**, and it is exact (independent of machine load):
+
+| case | cells | dense | HTOOL | HACApK |
+|------|------:|------:|------:|-------:|
+| 1 km | 4 000 | 122 MB | 22 MB (18%) | 25 MB (21%) |
+| 0.5 km | 16 000 | **1953 MB** | **133 MB (7%)** | 167 MB (9%) |
+
+At 16 000 cells the dense operator needs ~2 GB; the H-matrix backends need ~7–9% of that, and
+**compression improves with N** (the H-matrix advantage grows for larger problems). The
+per-call matvec is also several× cheaper — e.g. at 0.5 km/np=24, dense ≈ 10.7 ms vs HTOOL
+≈ 1.6 ms vs HACApK ≈ 2.9 ms.
+
+### Wallclock (theo3: 2×24-core EPYC, no GPU) — INDICATIVE ONLY
+> **theo3 is a shared node.** Absolute times below vary ~±2× with other users' load and are
+> single-run; treat the **ranking and the dense-vs-H-matrix trend as the takeaway, not the
+> absolute seconds.** Run `bp5/bench_hmatrix.sh` on your own (ideally idle) node to measure.
+> Rank binding (`-bind-to core -map-by numa`, default in the bench script) is HPC hygiene —
+> measured ~neutral here, not a speedup.
+
+Total wallclock (s), BP5 short 60 yr run, MPI rank count `np`:
+
+**1 km / 4000 cells**
+| np | dense | HTOOL | HACApK |
+|---:|---:|---:|---:|
+| 1 | 28.3 | 10.3 | 9.1 |
+| 8 | 6.1 | 0.96 | 0.99 |
+| 16 | 2.1 | 0.62 | 0.75 |
+| 24 | 1.1 | 0.54 | 0.81 |
+| 48 | 0.72 | 0.51 | 1.26 |
+
+**0.5 km / 16000 cells**
+| np | dense | HTOOL | HACApK |
+|---:|---:|---:|---:|
+| 1 | 704 | 97 | 193 |
+| 8 | 167 | 29 | 34 |
+| 16 | 89 | 17 | 21 |
+| 24 | 63 | 13 | 16 |
+| 48 | 48 | 9.4 | 17 |
+
+### Takeaways
+- **Use an H-matrix backend, not dense** — ~10% the memory and several× faster matvec; the gap
+  grows with N. On this theo3 build **HTOOL (`-use_hmatrix 1`)** is fastest at most rank counts
+  (HACApK is close, and faster at np=1 for the 1 km case). Backend ranking is
+  **hardware/build-dependent** — benchmark on your target.
+- **np≈16–24** is the practical sweet spot; the bandwidth-bound matvec saturates the two memory
+  controllers beyond that (HACApK regresses at np=48).
+- The matvec is **memory-bandwidth-bound**, so the real further speedups are *fewer bytes*
+  (single precision), *fewer matvecs* (the `-ts_rk_type 3bs -ts_adapt_type dsp` integrator,
+  −30/−40% steps, within published tol — opt-in), or *more bandwidth* (GPU via `-use_hmatrix 2`,
+  or multi-node).
+
+Full data, methodology, and the GPU roadmap: `scaling_tests/`, `rsf_solve.md`, `PLAN.md`.
+
 ## Binaries
 
 ### Main programs

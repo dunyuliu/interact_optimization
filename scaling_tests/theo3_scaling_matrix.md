@@ -3,7 +3,13 @@
 Node: dual-socket AMD EPYC 7F72 (2×24 cores, no HT). PETSc 3.22.5 (MPICH, Dave May build,
 HTOOL compressor `sympartialACA`). `rsf_solve`, BP5 short 60 yr timing run, **NUMA rank
 binding on** (`-bind-to core -map-by numa`; mandatory — see `theo3_numa_binding.md`).
-Raw data: `bench_hmatrix_{2km,1km,0.5km}.theo3.csv`. One run/point — trends, not 3 sig figs.
+Raw data: `bench_hmatrix_{1km,0.5km}.theo3.csv`. One run/point — trends, not 3 sig figs.
+
+> **theo3 is a SHARED node** (load often ~10; other users — including the code author — run
+> `rsf_solve` concurrently). Absolute wallclock here varies **~±2×** with that load: e.g. HTOOL
+> 0.5 km/np=24 measured 7.1 s on a near-idle night and 13 s under daytime load. **Trust the
+> backend ranking, the memory/compression (deterministic), and the dense-vs-H-matrix trend —
+> NOT the absolute seconds.** For real timings, run on an idle/exclusive node.
 
 ## Total wallclock (s)
 
