@@ -214,6 +214,40 @@ Total wallclock (s), BP5 short 60 yr run, MPI rank count `np`:
 | 24 | 63 | 13 | 16 |
 | 48 | 48 | 9.4 | 17 |
 
+### theo3 vs "walter" (the original `rsf_solve.md` tables) — the ranking flips
+> Qualitative comparison only: the walter numbers are single-run from the original doc, and
+> theo3 is a shared node (±2×). Read the **ranking and the assembly trend**, not the digits.
+
+On walter, **HACApK won at every rank count and HTOOL was crippled by *assembly*** — at
+0.5 km/np=1 it spent **~38 min** just building the compressed matrix (2428 s total vs HACApK
+120 s, dense 786 s), because PETSc's `MATHTOOL` defaulted to the expensive SVD compressor and
+ACA assembly scaled ~quadratically with N. On theo3 (`sympartialACA` + Dave May's PETSc/htool
+build) the same assembly takes ~19 s, so the ranking **flips to HTOOL-wins**.
+
+Total wallclock (s), **walter → theo3**:
+
+**1 km / 4000 cells**
+| np | dense | HTOOL | HACApK |
+|---:|---|---|---|
+| 1 | 30.9 → 28.3 | 42.2 → 10.3 | 10.9 → 9.1 |
+| 8 | 5.5 → 6.1 | 4.8 → 0.96 | 2.3 → 0.99 |
+| 24 | 2.0 → 1.1 | 2.2 → 0.54 | 1.6 → 0.81 |
+| 48 | 1.2 → 0.72 | 1.5 → 0.51 | 1.6 → 1.26 |
+
+**0.5 km / 16000 cells**
+| np | dense | HTOOL | HACApK |
+|---:|---|---|---|
+| 1 | 786 → 704 | **2428 → 97** | 120 → 193 |
+| 8 | 113 → 167 | 160 → 29 | 21 → 34 |
+| 24 | 57 → 63 | 26 → 13 | 9.8 → 16 |
+| 48 | 48 → 48 | 14 → 9.4 | 9.3 → 17 |
+
+- **HTOOL**: large improvement — the walter assembly trap is gone (0.5 km low-np ~25×).
+- **dense / HACApK**: comparable W↔T (similar-class hardware; both soft) — HACApK is even a bit
+  *slower* on theo3 at 0.5 km, a reminder of the shared-node ±2× and that absolute cross-machine
+  numbers aren't directly comparable.
+- **Memory matches both machines** (deterministic): dense 122/1953 MB, HACApK 25/167 MB.
+
 ### Takeaways
 - **Use an H-matrix backend, not dense** — ~10% the memory and several× faster matvec; the gap
   grows with N. On this theo3 build **HTOOL (`-use_hmatrix 1`)** is fastest at most rank counts
